@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ديمو حي، تقليل زمن الوصول ، V 34</title>
+<style>
+  :root{
+    --bg:#f6f6f7; --card:#fff; --ink:#0a0a0a; --muted:#6b7280; --border:#e5e7eb; --accent:#111827;
+    --red:#b91c1c; --green:#065f46;
+    --redGlow: rgba(185,28,28,.35);
+    --greenGlow: rgba(6,95,70,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px}
+  h1{font-size:28px;margin:0 0 6px;font-weight:800}
+  p.lead{margin:0;color:var(--muted)}
+  .credit{margin-top:4px;color:var(--muted);font-size:12px}
+  .row{display:grid;grid-template-columns:1fr;gap:16px}
+  @media(min-width:900px){.row{grid-template-columns:1fr 1fr}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .card h2{margin:0 0 8px;font-size:18px;font-weight:800}
+  .muted{color:var(--muted);font-size:13px}
+  .big{font-size:44px;font-weight:900;letter-spacing:.5px}
+  .money{font-size:32px;font-weight:900}
+  .money.far{color:var(--red)}
+  .money.near{color:var(--green)}
+  .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);background:#fff;color:#0a0a0a;padding:10px 14px;border-radius:12px;cursor:pointer}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .toolbar{display:flex;gap:8px;align-items:center}
+  .toolbar .spacer{flex:1}
+  label{display:flex;flex-direction:column;gap:6px}
+  label span{color:var(--muted);font-size:12px}
+  input[type=number]{width:100%;border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-size:14px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .nums{font-variant-numeric:tabular-nums}
+  .sep{height:1px;background:var(--border);margin:8px 0 16px}
+  .pill{display:inline-block;background:#111827;color:#fff;border-radius:999px;padding:2px 10px;font-size:12px}
+  /* Clock styles */
+  .clock{width:120px;height:120px;border-radius:50%;border:6px solid var(--border);position:relative;margin-top:12px;display:flex;align-items:center;justify-content:center}
+  .clock::after{content:"";position:absolute;width:10px;height:10px;border-radius:50%;background:#111827}
+  .hand{position:absolute;bottom:50%;left:50%;width:3px;height:45%;background:#111827;transform-origin:bottom;transform:translateX(-50%) rotate(0deg);border-radius:2px}
+  .hand.sec{height:48%;background:#9ca3af}
+  @keyframes spin{from{transform:translateX(-50%) rotate(0)}to{transform:translateX(-50%) rotate(360deg)}}
+  .spinning{animation:spin 1.2s linear infinite}
+  .hidden{opacity:0;transition:opacity .3s ease}
+  .show{opacity:1}
+  /* Flash effects */
+  @keyframes flashRed {
+    0%, 100% { box-shadow:0 0 0 rgba(0,0,0,0); background:var(--card); }
+    50% { box-shadow:0 0 0 6px var(--redGlow), 0 8px 24px var(--redGlow); background: #fff5f5; }
+  }
+  @keyframes flashGreen {
+    0%, 100% { box-shadow:0 0 0 rgba(0,0,0,0); background:var(--card); }
+    50% { box-shadow:0 0 0 6px var(--greenGlow), 0 8px 24px var(--greenGlow); background: #f1fff7; }
+  }
+  .flash-red { animation: flashRed 1.2s ease-in-out 2; }
+  .flash-green { animation: flashGreen 1.2s ease-in-out 2; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="toolbar">
+      <div>
+        <h1>ديمو حي، تقليل زمن الوصول ، V 34</h1>
+        <p class="lead">مقارنة فريق بعيد مقابل فريق متمركز داخل المبنى (Co‑Located)</p>
+        <div class="credit">أُعدّ هذا الديمو بواسطة رهف</div>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn" id="resetBtn">إرجاع القيم الافتراضية</button>
+      <button class="btn primary" id="printBtn">طباعة / PDF</button>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <div class="card" id="farCard">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h2>فريق بعيد</h2>
+          <div class="muted">زمن الوصول المستهدف: <span id="lblRespFar" class="pill nums">—</span> دقيقة</div>
+        </div>
+        <div class="big nums" id="cntFar">0<span style="font-size:20px"> دقيقة</span></div>
+        <div class="muted">كل دقيقة تأخير = <span id="lblCpm" class="nums">—</span> ر.س</div>
+        <div class="clock" aria-label="ساعة الفريق البعيد">
+          <div class="hand min" id="farMinHand"></div>
+          <div class="hand sec spinning" id="farSecHand"></div>
+        </div>
+        <div class="sep"></div>
+        <div class="muted">تكلفة الحادث الآن (تزيد مع الوقت):</div>
+        <div class="money nums far" id="farIncidentMoney">0 ر.س</div>
+        <div class="sep"></div>
+        <div class="muted">الخسائر السنوية (بعيد):</div>
+        <div class="money nums far" id="farAnnualLoss">0 ر.س/سنة</div>
+      </div>
+      <div class="card" id="nearCard">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h2>فريق متمركز داخل المبنى</h2>
+          <div class="muted">زمن الوصول المستهدف: <span id="lblRespNear" class="pill nums">—</span> دقيقة</div>
+        </div>
+        <div class="big nums" id="cntNear">0<span style="font-size:20px"> دقيقة</span></div>
+        <div class="muted">فرق الوصول الحالي: <span id="lblDiff" class="nums" style="font-weight:700">—</span> دقيقة</div>
+        <div class="clock" aria-label="ساعة الفريق القريب">
+          <div class="hand min" id="nearMinHand"></div>
+          <div class="hand sec spinning" id="nearSecHand"></div>
+        </div>
+        <div class="sep"></div>
+        <div class="muted">تكلفة الحادث الآن (تزيد مع الوقت):</div>
+        <div class="money nums near" id="nearIncidentMoney">0 ر.س</div>
+        <div class="sep"></div>
+        <div class="muted">الخسائر السنوية (قريب):</div>
+        <div class="money nums near" id="nearAnnualLoss">0 ر.س/سنة</div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+      <button class="btn primary" id="startBtn">بدء محاكاة إنذار الآن</button>
+    </div>
+
+    <div class="row" style="margin-top:14px">
+      <div class="card">
+        <h2>إعدادات الحادث</h2>
+        <div class="grid2" style="margin-top:10px">
+          <label><span>وصول (بعيد) — دقيقة</span><input type="number" id="respFar" /></label>
+          <label><span>وصول (قريب) — دقيقة</span><input type="number" id="respNear" /></label>
+          <label class="full" style="grid-column:1/-1"><span>تكلفة الدقيقة (ر.س)</span><input type="number" id="cpm" /></label>
+          <label class="full" style="grid-column:1/-1"><span>عدد البلاغات الحرجة/سنة</span><input type="number" id="E" /></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>زمن التنقّل اليومي</h2>
+        <div class="grid2" style="margin-top:10px">
+          <label><span>دقائق/يوم (بعيد)</span><input type="number" id="Tfar" /></label>
+          <label><span>دقائق/يوم (قريب)</span><input type="number" id="Tnear" /></label>
+          <label><span>عدد المهندسين N</span><input type="number" id="N" /></label>
+          <label><span>أيام العمل/سنة D</span><input type="number" id="D" /></label>
+          <!-- قيمة ساعة المهندس مخفية عن الواجهة لكن مستخدمة داخليًا -->
+          <input type="hidden" id="R" />
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:14px">
+      <div class="card">
+        <h2>ساعات تنقّل مستعادة/سنة</h2>
+        <div class="big nums" id="hoursSaved">—</div>
+        <div class="muted">قيمة الوقت: <span id="valueTime" class="nums">—</span> ر.س/سنة</div>
+      </div>
+      <div class="card">
+        <h2>توفير الحوادث/سنة (فرق الوصول)</h2>
+        <div class="big nums hidden" id="incidentSaving">—</div>
+        <div class="muted">فرق الوصول: <span id="diffMin" class="nums">—</span> د × <span id="lblCpm2" class="nums">—</span> ر.س × <span id="effEvents" class="nums">—</span> حادث</div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+(function(){
+  // --- helpers ---
+  const fmt=(n)=>{
+    if(!isFinite(n)) return '—';
+    const abs=Math.abs(n);
+    if(abs>=1_000_000_000) return (n/1_000_000_000).toFixed(2)+'B';
+    if(abs>=1_000_000) return (n/1_000_000).toFixed(2)+'M';
+    if(abs>=1_000) return (n/1_000).toFixed(1)+'K';
+    return Math.round(n).toString();
+  };
+  const setRot=(el,deg)=>{ el.style.transform = 'translateX(-50%) rotate('+deg+'deg)'; };
+  const flashOnce=(el,cls)=>{ el.classList.add(cls); setTimeout(()=>el.classList.remove(cls), 2600); };
+
+  // --- elements ---
+  const els = {
+    // cards
+    farCard: document.getElementById('farCard'),
+    nearCard: document.getElementById('nearCard'),
+    // counters
+    cntFar: document.getElementById('cntFar'),
+    cntNear: document.getElementById('cntNear'),
+    lblRespFar: document.getElementById('lblRespFar'),
+    lblRespNear: document.getElementById('lblRespNear'),
+    lblCpm: document.getElementById('lblCpm'),
+    lblDiff: document.getElementById('lblDiff'),
+    farIncidentMoney: document.getElementById('farIncidentMoney'),
+    nearIncidentMoney: document.getElementById('nearIncidentMoney'),
+    farAnnualLoss: document.getElementById('farAnnualLoss'),
+    nearAnnualLoss: document.getElementById('nearAnnualLoss'),
+    farMinHand: document.getElementById('farMinHand'),
+    farSecHand: document.getElementById('farSecHand'),
+    nearMinHand: document.getElementById('nearMinHand'),
+    nearSecHand: document.getElementById('nearSecHand'),
+    // inputs
+    respFar: document.getElementById('respFar'),
+    respNear: document.getElementById('respNear'),
+    cpm: document.getElementById('cpm'),
+    E: document.getElementById('E'),
+    Tfar: document.getElementById('Tfar'),
+    Tnear: document.getElementById('Tnear'),
+    N: document.getElementById('N'),
+    D: document.getElementById('D'),
+    R: document.getElementById('R'), // hidden
+    // results
+    hoursSaved: document.getElementById('hoursSaved'),
+    valueTime: document.getElementById('valueTime'),
+    incidentSaving: document.getElementById('incidentSaving'),
+    diffMin: document.getElementById('diffMin'),
+    lblCpm2: document.getElementById('lblCpm2'),
+    effEvents: document.getElementById('effEvents'),
+    // buttons
+    startBtn: document.getElementById('startBtn'),
+    printBtn: document.getElementById('printBtn'),
+    resetBtn: document.getElementById('resetBtn')
+  };
+
+  // --- defaults (Rahaf) ---
+  const defaults = {
+    N: 60, D: 250, Tfar: 36, Tnear: 10, R: 346, // R hidden
+    E: 24, cpm: 1000, respFar: 12, respNear: 4
+  };
+
+  // state
+  const state = {
+    running: false, finishedFar: false, finishedNear: false,
+    cpm: defaults.cpm, respFar: defaults.respFar, respNear: defaults.respNear,
+    farVal: 0, nearVal: 0
+  };
+
+  function setDefaults(){
+    els.N.value = defaults.N;
+    els.D.value = defaults.D;
+    els.Tfar.value = defaults.Tfar;
+    els.Tnear.value = defaults.Tnear;
+    els.R.value = defaults.R; // hidden input
+    els.E.value = defaults.E;
+    els.cpm.value = defaults.cpm;
+    els.respFar.value = defaults.respFar;
+    els.respNear.value = defaults.respNear;
+    compute();
+    resetCounters();
+  }
+
+  // --- compute ---
+  let cached = {};
+  function compute(){
+    const N = +els.N.value||0;
+    const D = +els.D.value||0;
+    const Tfar = +els.Tfar.value||0;
+    const Tnear = +els.Tnear.value||0;
+    const R = +els.R.value||0;
+    const E = +els.E.value||0;
+    const cpm = +els.cpm.value||0;
+    const respFar = +els.respFar.value||0;
+    const respNear = +els.respNear.value||0;
+
+    const diffMinPerEvent = Math.max(0, respFar - respNear);
+    const hoursFar = N * (Tfar/60) * D;
+    const hoursNear = N * (Tnear/60) * D;
+    const hoursSaved = Math.max(0, hoursFar - hoursNear);
+    const valueTime = hoursSaved * R;
+    const incidentSaving = diffMinPerEvent * cpm * E;
+
+    // update static UI
+    els.lblRespFar.textContent = respFar;
+    els.lblRespNear.textContent = respNear;
+    els.lblCpm.textContent = fmt(cpm);
+    els.lblDiff.textContent = diffMinPerEvent;
+    els.diffMin.textContent = diffMinPerEvent;
+    els.hoursSaved.textContent = fmt(hoursSaved);
+    els.valueTime.textContent = fmt(valueTime);
+    els.lblCpm2.textContent = fmt(cpm);
+    els.effEvents.textContent = fmt(E);
+
+    // cache
+    cached = { N,D,Tfar,Tnear,R,E,cpm,respFar,respNear,hoursFar,hoursNear,incidentSaving };
+
+    // If not running, annuals are zero
+    if(!state.running){
+      els.farAnnualLoss.textContent = '0 ر.س/سنة';
+      els.nearAnnualLoss.textContent = '0 ر.س/سنة';
+      els.incidentSaving.classList.remove('show'); els.incidentSaving.classList.add('hidden');
+      els.incidentSaving.textContent = '—';
+    }
+
+    // store state for counters
+    state.cpm = cpm;
+    state.respFar = respFar;
+    state.respNear = respNear;
+  }
+
+  // --- counters ---
+  let farTimer=null, nearTimer=null;
+  const STEP = 900; // ms per simulated minute
+
+  function resetCounters(){
+    state.running=false; state.finishedFar=false; state.finishedNear=false;
+    state.farVal=0; state.nearVal=0;
+    els.cntFar.innerHTML = `0<span style="font-size:20px"> دقيقة</span>`;
+    els.cntNear.innerHTML = `0<span style="font-size:20px"> دقيقة</span>`;
+    els.farIncidentMoney.textContent = `0 ر.س`;
+    els.nearIncidentMoney.textContent = `0 ر.س`;
+    setRot(els.farMinHand, 0); setRot(els.nearMinHand, 0);
+    els.farSecHand.classList.add('spinning'); els.nearSecHand.classList.add('spinning');
+    clearInterval(farTimer); clearInterval(nearTimer);
+    // annuals reset to zero
+    els.farAnnualLoss.textContent = '0 ر.س/سنة';
+    els.nearAnnualLoss.textContent = '0 ر.س/سنة';
+    // hide incident saving
+    els.incidentSaving.classList.remove('show'); els.incidentSaving.classList.add('hidden');
+    els.incidentSaving.textContent = '—';
+  }
+
+  function maybeRevealIncidentSaving(){
+    if(state.finishedFar && state.finishedNear){
+      els.incidentSaving.textContent = fmt(cached.incidentSaving);
+      setTimeout(()=>{
+        els.incidentSaving.classList.remove('hidden');
+        els.incidentSaving.classList.add('show');
+      }, 150);
+    }
+  }
+
+  function startCounters(){
+    resetCounters();
+    state.running = true;
+    const fgoal=state.respFar;
+    const ngoal=state.respNear;
+
+    farTimer=setInterval(()=>{
+      if(state.farVal>=fgoal){
+        clearInterval(farTimer);
+        state.finishedFar = true;
+        els.farSecHand.classList.remove('spinning');
+        flashOnce(els.farCard, 'flash-red');
+        maybeRevealIncidentSaving();
+        return;
+      }
+      state.farVal++;
+      els.cntFar.innerHTML = `${state.farVal}<span style="font-size:20px"> دقيقة</span>`;
+      els.farIncidentMoney.textContent = `${fmt(state.farVal*state.cpm)} ر.س`;
+      const prog = fgoal>0 ? (state.farVal/fgoal) : 1;
+      setRot(els.farMinHand, prog*360);
+      // live annual loss update (far): scale travel cost by progress + incident part by minutes
+      const farAnnualLoss = (prog * (cached.hoursFar * cached.R)) + (state.farVal * cached.cpm * cached.E);
+      els.farAnnualLoss.textContent = fmt(farAnnualLoss) + ' ر.س/سنة';
+    },STEP);
+
+    nearTimer=setInterval(()=>{
+      if(state.nearVal>=ngoal){
+        clearInterval(nearTimer);
+        state.finishedNear = true;
+        els.nearSecHand.classList.remove('spinning');
+        flashOnce(els.nearCard, 'flash-green');
+        maybeRevealIncidentSaving();
+        return;
+      }
+      state.nearVal++;
+      els.cntNear.innerHTML = `${state.nearVal}<span style="font-size:20px"> دقيقة</span>`;
+      els.nearIncidentMoney.textContent = `${fmt(state.nearVal*state.cpm)} ر.س`;
+      const prog = ngoal>0 ? (state.nearVal/ngoal) : 1;
+      setRot(els.nearMinHand, prog*360);
+      // live annual loss update (near): scale travel cost by progress + incident part by minutes
+      const nearAnnualLoss = (prog * (cached.hoursNear * cached.R)) + (state.nearVal * cached.cpm * cached.E);
+      els.nearAnnualLoss.textContent = fmt(nearAnnualLoss) + ' ر.س/سنة';
+    },STEP);
+  }
+
+  // --- events ---
+  els.startBtn.addEventListener('click', startCounters);
+  els.printBtn.addEventListener('click', ()=>window.print());
+  els.resetBtn.addEventListener('click', setDefaults);
+  ['respFar','respNear','cpm','E','Tfar','Tnear','N','D'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', compute);
+  });
+
+  // init
+  setDefaults();
+  compute();
+})();
+</script>
+</body>
+</html>
